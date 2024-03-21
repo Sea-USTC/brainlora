@@ -720,9 +720,9 @@ def seed_torch(seed):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--config', default='/remote-home/mengxichen/UniBrain-lora/Pretrain/configs/config_fifteen.yaml')
+    parser.add_argument('--config', default='/root/UniBrain-lora/Pretrain/configs/config_fifteen.yaml')
     parser.add_argument('--finetune_checkpoint', default='')
-    parser.add_argument('--output_dir', default='/root/output_fifteen/output_loran_r1')
+    parser.add_argument('--output_dir', default='/root/output_fifteen/output_loran_r8')
     parser.add_argument('--device', default='cuda')
     parser.add_argument('--gpu', type=str,default='0', help='gpu')
     parser.add_argument('--seed', type=int,default=3407, help='gpu')

@@ -11,8 +11,8 @@ train_file: /remote-home/mengxichen/UniBrain-lora/Pretrain/datafile_fifteen/trai
 valid_file: /remote-home/mengxichen/UniBrain-lora/Pretrain/datafile_fifteen/val_data_path.json
 
 test_batch_size: 8
-train_batch_size: 4
-val_batch_size: 4
+train_batch_size: 2
+val_batch_size: 2
 
 augment: True
 
@@ -20,7 +20,8 @@ optimizer: {opt: adam, lr: 1e-4, weight_decay: 1e-5, amsgrad: True}
 schedular: {sched: poly, lr: 1e-4, power: 0.9, epochs: 100}
 
 r: [2,4,8]
-r_resnet: 1
+r_resnet: 8
+r_proj: 2
 lora_alpha: 1
 
 kad: true
