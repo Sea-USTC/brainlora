@@ -1,0 +1,92 @@
+disease_book: /remote-home/mengxichen/UniBrain-v2_new/Pretrain/data_file_more_label/dis_description.json
+disease_order: /remote-home/mengxichen/UniBrain-v2_new/Pretrain/data_file_more_label/dis_order.json
+label_file: /remote-home/mengxichen/UniBrain-v2_new/Pretrain/datafile_thirty/label.npy
+train_label_file: /remote-home/mengxichen/UniBrain-v2_new/Pretrain/datafile_thirty/train_label.npy
+dis_label_file: /remote-home/mengxichen/UniBrain-v2_new/Pretrain/datafile_thirty/dis_label.npy
+anatomy_order: /remote-home/mengxichen/UniBrain-v2_new/Pretrain/data_file_more_label/anatomy_order.json
+report_observe: /remote-home/mengxichen/UniBrain-v2_new/Pretrain/datafile_thirty/report_observe.npy
+test_file: /remote-home/mengxichen/UniBrain-v2_new/Pretrain/datafile_thirty/test_data_path.json
+text_encoder: /remote-home/mengxichen/UniBrain-v2_new/Pretrain/xmcmic
+train_file: /remote-home/mengxichen/UniBrain-v2_new/Pretrain/datafile_thirty/train_data_path.json
+valid_file: /remote-home/mengxichen/UniBrain-v2_new/Pretrain/datafile_thirty/val_data_path.json
+
+test_batch_size: 8
+train_batch_size: 16
+val_batch_size: 16
+
+augment: True
+
+optimizer: {opt: adam, lr: 1e-4, weight_decay: 1e-5, amsgrad: True}
+schedular: {sched: poly, lr: 1e-4, power: 0.9, epochs: 100}
+
+r: [2,4,8]
+lora_alpha: 1
+
+kad: true
+kad_loss_ratio: 1
+no_cl: true
+
+attribute_set_size: 1
+
+res_base_model: resnet34
+model_depth: 34
+model_type: resnet
+pretrain_path: /remote-home/mengxichen/UniBrain-v2_new/Pretrain/models/pretrained_weights/resnet_34.pth
+resnet_shortcut: B
+
+4_image_encoder: false
+H: 4
+N: 4
+alpha: 0.4
+weightmlp_hidden: 128
+projectmlp_hidden: 64
+projectmlp_output: 32
+
+w_bce: true
+w_cl: true
+
+tau: 0.2
+
+attention: false
+
+# class_p: /home/ps/leijiayu/CODE/MedKLIP/Pretrain_MedKLIP/data_file/class_p.json
+conv1_t_size: 7
+conv1_t_stride: 1
+d_model: 768
+gpu_id: [0,1,2,3]
+
+dropout: 0.1
+exclude_class: false
+fea_width: 197
+
+image_res: 224
+in_channels: 1
+input_D: 16
+input_H: 224
+input_W: 224
+
+la: false
+la_alpha: 1
+
+mlm_probability: 0.15
+
+momentum: 0.995
+
+no_cuda: false
+no_max_pool: false
+num_classes: 13
+num_queries: 75
+num_sentences: 12
+num_tokens: 32
+
+out_feature: 768
+patch_size: 16
+
+queue_size: 8192
+
+
+seperate_classifier: false
+shuffle_ratio: 0.5
+temp: 0.07
+
+vision_width: 768
