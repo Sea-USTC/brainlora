@@ -28,7 +28,7 @@ from models.before_fuse import *
 
 from models.tokenization_bert import BertTokenizer
 
-from models.imageEncoder_proj import ModelRes, ModelDense
+from models.imageEncoder_projft import ModelRes, ModelDense
 from models.VIT_image_encoder.VIT_ie import VIT_ie
 from transformers import AutoModel,AutoTokenizer
 
