@@ -104,6 +104,9 @@ class ModelRes(nn.Module):
             pretrain = torch.load(pretrain_path)
             pretrain_dict = {k[7:]: v for k, v in pretrain['state_dict'].items() if k[7:] in net_dict.keys()}
             print(pretrain_dict.keys())
+            ###################################
+            pretrain_dict={}
+            ###################################
             net_dict.update(pretrain_dict) 
             model.load_state_dict(net_dict) 
             print("-------- pre-train model load successfully --------")

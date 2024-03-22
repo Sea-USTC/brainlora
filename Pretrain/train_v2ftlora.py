@@ -584,6 +584,8 @@ def main(args, config):
         fuseModule.load_state_dict(checkpoint['fuseModule'])
         pretrain_dict = {}
         net_dict = image_encoder.state_dict()
+        print(net_dict.keys())
+        print(checkpoint['image_encoder'].keys())
         for k,v in checkpoint['image_encoder'].items():
             if k in net_dict.keys():
                 pretrain_dict[k]=v
