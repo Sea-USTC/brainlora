@@ -386,7 +386,7 @@ def test(args,config):
     workbook = openpyxl.Workbook()
     sheet = workbook.active
 
-    xlsx_folder_path = '/root/UniBrain-lora/Test/xlsx_files_lorar1/'
+    xlsx_folder_path = '/root/UniBrain-lora/Test/xlsx_files_lorar8/'
     xlsx_file_path = xlsx_folder_path + 'baseline_'+ pred_name+'.xlsx'
     if not os.path.exists(xlsx_folder_path):
         os.makedirs(xlsx_folder_path)
@@ -412,8 +412,8 @@ def test(args,config):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--config', default='/remote-home/mengxichen/UniBrain-lora/Pretrain/configs/config_fifteen.yaml')
-    parser.add_argument('--model_path', default='/remote-home/mengxichen/UniBrain-lora/Pretrain/output_fifteen/output_lora1/best_val.pth')
+    parser.add_argument('--config', default='/root/UniBrain-lora/Pretrain/configs/config_fifteen.yaml')
+    parser.add_argument('--model_path', default='/root/output_fifteen/output_loran_r8/best_val.pth')
     parser.add_argument('--device', default='cuda')
     parser.add_argument('--gpu', type=str,default='1', help='gpu')
     parser.add_argument('--mode', type=str, default='test')
