@@ -7,6 +7,7 @@ import time
 import datetime
 import json
 from pathlib import Path
+import openpyxl
 
 import torch
 import torch.nn as nn
@@ -15,17 +16,13 @@ from torch.utils.data import DataLoader
 from sklearn.metrics import roc_auc_score,precision_recall_curve,accuracy_score,confusion_matrix,average_precision_score
 
 # from models.model_MedKLIP import MedKLIP
-#############################################################
-# from models.model_mole import MedKLIP as MedKLIP
-#### bug: model different between pretrain
-#############################################################
-from models.model_mole_pretrain import MedKLIP as MedKLIP
+from models.model_MedKLIP_before_fuse import MedKLIP as MedKLIP
 from models.model_MedKLIP_14class_before_fuse import MedKLIP as MedKLIP_14
 from models.VIT_image_encoder.VIT_ie import VIT_ie
 from dataset.dataset_v1 import MedKLIP_Dataset
 from models.tokenization_bert import BertTokenizer
 from transformers import AutoModel
-from models.imageEncoder import ModelRes, ModelDense
+from models.imageEncoder_projft import ModelRes, ModelDense
 from models.before_fuse import *
 from models.SimpleMLP import SimpleMLP
 
@@ -46,6 +43,18 @@ from einops import rearrange
 #             'drainage', 'distention', 'shift', 'stent', 'pressure', 'lesion', 'finding', 'borderline', 'hardware', 'dilation', 'chf', 'redistribution', 'aspiration',
 #             'tail_abnorm_obs', 'excluded_obs'
 #         ]
+def seed_torch(seed):
+    os.environ['PYTHONHASHSEED'] = str(seed) 
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed) # if you are using multi-GPU.
+    torch.backends.cudnn.benchmark = False
+    torch.backends.cudnn.deterministic = True
+
+
+
 def _get_bert_basemodel(bert_model_name):
     try:
         model = AutoModel.from_pretrained(bert_model_name)#, return_dict=True)
@@ -158,9 +167,6 @@ def test(args,config):
 
     fuseModule = beforeFuse(config).to(device) # before fusion
     
-    weight_MLP = SimpleMLP(config['d_model'],config['weightmlp_hidden'],3)
-    project_MLP = SimpleMLP(3,config['projectmlp_hidden'],config['projectmlp_output'])
-    
     print("Creating model")
     if config['seperate_classifier']:
         print("Medklip_14")
@@ -171,7 +177,7 @@ def test(args,config):
 
     model = nn.DataParallel(model, device_ids = [i for i in range(torch.cuda.device_count())])
     model = model.to(device)
-    
+
     print('Load model from checkpoint:',args.model_path)
     checkpoint = torch.load(args.model_path,map_location='cpu') 
     state_dict = checkpoint['model']          
@@ -191,14 +197,6 @@ def test(args,config):
     # fuseModule = nn.DataParallel(fuseModule, device_ids = [i for i in range(torch.cuda.device_count())])
     fuseModule.load_state_dict(checkpoint['fuseModule'])
     # fuseModule = fuseModule.to(device)
-    
-    weight_MLP = nn.DataParallel(weight_MLP, device_ids = [i for i in range(torch.cuda.device_count())]) 
-    weight_MLP = weight_MLP.to(device)
-    weight_MLP.load_state_dict(checkpoint['weight_MLP'])
-    
-    project_MLP = nn.DataParallel(project_MLP, device_ids = [i for i in range(torch.cuda.device_count())]) 
-    project_MLP = project_MLP.to(device)
-    project_MLP.load_state_dict(checkpoint['project_MLP'])
 
     # initialize the ground truth and output tensor
     gt = torch.FloatTensor()
@@ -214,7 +212,7 @@ def test(args,config):
     pred_name = args.model_path.split('/')[-1].split('.')[0]
     pred_name = '_'.join([args.model_path.split('/')[-2], pred_name])
     print("pred_name",pred_name)
-    rootdir = "/remote-home/mengxichen/UniBrain-lora/Test/preds"+pred_name+main_name+"/"
+    rootdir = "/root/UniBrain-lora/Test/preds"+pred_name+main_name+"/"
 
     # if os.path.exists(rootdir+"pred_"+args.mode+".npy"):
     if True:
@@ -251,19 +249,14 @@ def test(args,config):
                     cur_image_encoder = image_encoder[idx]
                     image_feature,image_feature_pool = cur_image_encoder(cur_image)
                 else:
-                    image_feature,image_feature_pool = image_encoder(cur_image) 
+                    image_feature,image_feature_pool = image_encoder(cur_image,idx) 
                 image_features.append(image_feature)
                 image_features_pool.append(image_feature_pool)
             # before fuse
-            fuse_image_feature, fuse_image_feature_pool = fuseModule(image_features)
-            image_features_pool.append(fuse_image_feature_pool)
-            
-            weights = weight_MLP(fuse_image_feature_pool)
-            # weights_norm = F.softmax(weights,dim=1)
-            # weights_project = project_MLP(weights)
+            fuse_image_feature,_ = fuseModule(image_features)
             #input_image = image.to(device,non_blocking=True)  
             with torch.no_grad():
-                pred_class = model(fuse_image_feature,cur_text_features,weights,return_ws=False) #batch_size,num_class,1
+                pred_class = model(fuse_image_feature,cur_text_features, return_ws=False) #batch_size,num_class,1
                 # pred_class = F.softmax(pred_class.reshape(-1,2)).reshape(-1,len(target_class),2)
                 # pred_class = pred_class[:,:-1,1]
                 # pred_class = pred_class[:,:,1]
@@ -389,14 +382,42 @@ def test(args,config):
     # print('The average f1 is {F1_avg:.4f}'.format(F1_avg=f1_avg))
     # print('The average ACC is {ACC_avg:.4f}'.format(ACC_avg=acc_avg))
     
-    
+    # write into excel, AUROCs, max_f1s, accs, aps
+    workbook = openpyxl.Workbook()
+    sheet = workbook.active
+
+    xlsx_folder_path = '/root/UniBrain-lora/Test/xlsx_files_loraproj_ft4/'
+    xlsx_file_path = xlsx_folder_path + 'baseline_'+ pred_name+'.xlsx'
+    if not os.path.exists(xlsx_folder_path):
+        os.makedirs(xlsx_folder_path)
+
+    for i, value in enumerate(['auc', 'f1', 'acc', 'ap'], start=1):
+        sheet.cell(row=i+1, column=1, value=value)
+    for i, value in enumerate(target_class, start=1):
+        sheet.cell(row=1, column=i+2, value=value)
+    for i, value in enumerate(AUROCs, start=1):
+        sheet.cell(row=2, column=i+2, value=value)
+    for i, value in enumerate(max_f1s, start=1):
+        sheet.cell(row=3, column=i+2, value=value)
+    for i, value in enumerate(accs, start=1):
+        sheet.cell(row=4, column=i+2, value=value)
+    for i, value in enumerate(aps, start=1):
+        sheet.cell(row=5, column=i+2, value=value)
+    for i, value in enumerate(['aAUC','af1','aACC','aAP'], start=1):
+        sheet.cell(row=6, column=i+2, value=value)
+    for i, value in enumerate([np.array(AUROCs[:]).mean(), np.array(max_f1s[:]).mean(), np.array(accs[:]).mean(), np.array(aps[:]).mean()], start=1):
+        sheet.cell(row=7, column=i+2, value=value)
+    workbook.save(xlsx_file_path)
+
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--config', default='/remote-home/mengxichen/UniBrain-lora/Test/configs/config_fifteen.yaml')
-    parser.add_argument('--model_path', default='/remote-home/mengxichen/UniBrain-lora/best_val.pth')
+    parser.add_argument('--config', default='/root/UniBrain-lora/Pretrain/configs/config_fifteen.yaml')
+    parser.add_argument('--model_path', default='/root/output_fifteen/output_loraproj_ft2/best_val.pth')
     parser.add_argument('--device', default='cuda')
-    parser.add_argument('--gpu', type=str,default='4', help='gpu')
+    parser.add_argument('--gpu', type=str,default='1', help='gpu')
     parser.add_argument('--mode', type=str, default='test')
+    parser.add_argument('--seed', type=int,default=2024, help='gpu')
     args = parser.parse_args()
 
     config = yaml.load(open(args.config, 'r'), Loader=yaml.Loader)
@@ -409,4 +430,5 @@ if __name__ == '__main__':
     strict_test = True
     main_name = "_nostrict" if not strict_test else ""
 
+    seed_torch(args.seed)  
     test(args, config)
