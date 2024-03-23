@@ -23,7 +23,7 @@ from optim.optim_factory_kad import create_optimizer
 from dataset.dataset import MedKLIP_Dataset
 # from models.model_MedKLIP import MedKLIP
 from models.model_MedKLIP_before_fuse import MedKLIP as MedKLIP
-from models.before_fuse import *
+from models.before_fuse_lora import *
 # from models.model_MedKLIP_attention_14class import MedKLIP as MedKLIP_14_atten
 
 from models.tokenization_bert import BertTokenizer
@@ -581,7 +581,7 @@ def main(args, config):
     if len(args.finetune_checkpoint):
         checkpoint = torch.load(args.finetune_checkpoint, map_location='cpu')
         model.load_state_dict(checkpoint['model'])
-        fuseModule.load_state_dict(checkpoint['fuseModule'])
+        fuseModule.load_state_dict(checkpoint['fuseModule'], strict=False)
         pretrain_dict = {}
         net_dict = image_encoder.state_dict()
         print(net_dict.keys())
@@ -592,10 +592,29 @@ def main(args, config):
         net_dict.update(pretrain_dict)
         print(pretrain_dict.keys())
         image_encoder.load_state_dict(net_dict)
-    for param in model.parameters():
-        param.requires_grad=False
+
+        for name, param in model.named_parameters():
+            if "classifier" in name:
+                print(name)
+                param.requires_grad = True
+                print("init",name)
+                if 'weight' in name:
+                    param.data.normal_(mean=0.0, std=0.02)
+                elif 'bias' in name:
+                    torch.nn.init.constant_(param,0)
+                else:
+                    print("param.shape",param.shape)
+                    for i in range(len(param)):
+                        torch.nn.init.normal_(param[i], mean=0.0, std=0.02)
+            else:
+                param.requires_grad = False 
+
     for param in fuseModule.parameters():
         param.requires_grad=False
+    fuseModule.res_linear1.lora_A.requires_grad=True
+    fuseModule.res_linear1.lora_B.requires_grad=True
+    fuseModule.res_linear2.lora_A.requires_grad=True
+    fuseModule.res_linear2.lora_B.requires_grad=True
     for param in image_encoder.parameters():
         param.requires_grad=False
     for param in image_encoder.module.res_l1.lora_A.parameters():
@@ -728,7 +747,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--config', default='/root/UniBrain-lora/Pretrain/configs/config_fifteen.yaml')
     parser.add_argument('--finetune_checkpoint', default='/remote-home/mengxichen/UniBrain-lora/Pretrain/output_fifteen/output_baseline1/best_val.pth')
-    parser.add_argument('--output_dir', default='/root/output_fifteen/output_loraproj_ft2')
+    parser.add_argument('--output_dir', default='/root/output_fifteen/output_lorav3')
     parser.add_argument('--device', default='cuda')
     parser.add_argument('--gpu', type=str,default='0', help='gpu')
     parser.add_argument('--seed', type=int,default=3407, help='gpu')
